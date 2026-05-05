@@ -8,7 +8,7 @@ type ToastState = {
 } | null
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Request failed.'
+  return error instanceof Error ? error.message : 'Yêu cầu thất bại.'
 }
 
 function getSettingString(data: Record<string, unknown>, key: string) {
@@ -38,10 +38,18 @@ export function Settings() {
 
         if (data && typeof data === 'object' && !Array.isArray(data)) {
           const settings = data as Record<string, unknown>
-          setTelegramBotToken(getSettingString(settings, 'telegramBotToken'))
-          setTelegramChatId(getSettingString(settings, 'telegramChatId'))
+          setTelegramBotToken(
+            getSettingString(settings, 'telegram_bot_token') ||
+              getSettingString(settings, 'telegramBotToken'),
+          )
+          setTelegramChatId(
+            getSettingString(settings, 'telegram_chat_id') ||
+              getSettingString(settings, 'telegramChatId'),
+          )
           setCooldownMinutes(
-            getSettingString(settings, 'cooldownMinutes') || '15',
+            getSettingString(settings, 'cooldown_minutes') ||
+              getSettingString(settings, 'cooldownMinutes') ||
+              '15',
           )
         }
       } catch (error) {
@@ -64,7 +72,7 @@ export function Settings() {
     ) {
       setToast({
         type: 'error',
-        message: 'Cooldown minutes must be a number >= 1.',
+        message: 'Thời gian chờ phải là số >= 1 phút.',
       })
       return
     }
@@ -74,11 +82,11 @@ export function Settings() {
 
     try {
       await updateSettings({
-        telegramBotToken,
-        telegramChatId,
-        cooldownMinutes: normalizedCooldown,
+        telegram_bot_token: telegramBotToken,
+        telegram_chat_id: telegramChatId,
+        cooldown_minutes: normalizedCooldown,
       })
-      setToast({ type: 'success', message: 'Settings saved.' })
+      setToast({ type: 'success', message: 'Đã lưu cài đặt.' })
     } catch (error) {
       setToast({ type: 'error', message: getErrorMessage(error) })
     } finally {
@@ -92,7 +100,7 @@ export function Settings() {
 
     try {
       await testTelegram()
-      setToast({ type: 'success', message: 'Test notification sent.' })
+      setToast({ type: 'success', message: 'Đã gửi thông báo thử.' })
     } catch (error) {
       setToast({ type: 'error', message: getErrorMessage(error) })
     } finally {
@@ -103,16 +111,15 @@ export function Settings() {
   return (
     <section className="screen settings-screen">
       <div className="page-heading">
-        <h2>Settings</h2>
+        <h2>Cài đặt</h2>
         <p>
-          Configure your institutional notification pipelines and execution
-          cooldowns.
+          Cấu hình luồng thông báo và thời gian chờ thực thi cho hệ thống.
         </p>
       </div>
 
       <div className="settings-stack">
         {isLoading ? (
-          <div className="state-panel muted-state">Loading settings...</div>
+          <div className="state-panel muted-state">Đang tải cài đặt...</div>
         ) : null}
 
         {loadError ? (
@@ -126,40 +133,40 @@ export function Settings() {
           <div className="panel-heading">
             <h3>
               <MessageSquare size={24} />
-              Telegram Configuration
+              Cấu hình Telegram
             </h3>
-            <p>Connect your bot for real-time trade signals and alerts.</p>
+            <p>Kết nối bot để nhận tín hiệu giao dịch và cảnh báo theo thời gian thực.</p>
           </div>
           <div className="form-stack">
             <label>
-              Bot Token
+              Token bot
               <span className="password-shell">
                 <input
-                  aria-label="Telegram Bot Token"
+                  aria-label="Token bot Telegram"
                   disabled={isLoading}
                   onChange={(event) => setTelegramBotToken(event.target.value)}
-                  placeholder="e.g. 1234567890:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+                  placeholder="VD: 1234567890:ABCdefGhIJKlmNoPQRsTUVwxyZ"
                   type="password"
                   value={telegramBotToken}
                 />
-                <button type="button" aria-label="Show bot token">
+                <button type="button" aria-label="Hiện token bot">
                   <Eye size={17} />
                 </button>
               </span>
-              <small>Create a new bot via @BotFather to get your unique token.</small>
+              <small>Tạo bot mới qua @BotFather để lấy token riêng.</small>
             </label>
             <label>
               Chat ID
               <input
-                aria-label="Telegram Chat ID"
+                aria-label="Chat ID Telegram"
                 disabled={isLoading}
                 onChange={(event) => setTelegramChatId(event.target.value)}
-                placeholder="e.g. -1001234567890"
+                placeholder="VD: -1001234567890"
                 value={telegramChatId}
               />
               <small>
-                The destination channel or group ID. Prefix with -100 for
-                supergroups.
+                ID kênh hoặc nhóm nhận tin. Nhóm supergroup thường bắt đầu bằng
+                -100.
               </small>
             </label>
           </div>
@@ -169,27 +176,26 @@ export function Settings() {
           <div className="panel-heading">
             <h3>
               <Gauge size={24} />
-              System Parameters
+              Tham số hệ thống
             </h3>
-            <p>Adjust global execution rules and constraints.</p>
+            <p>Điều chỉnh quy tắc và giới hạn thực thi chung.</p>
           </div>
           <div className="form-stack">
             <label>
-              Signal Cooldown (Minutes)
+              Thời gian chờ tín hiệu
               <span className="inline-input">
                 <input
-                  aria-label="Cooldown Minutes"
+                  aria-label="Thời gian chờ"
                   disabled={isLoading}
                   min="1"
                   onChange={(event) => setCooldownMinutes(event.target.value)}
                   type="number"
                   value={cooldownMinutes}
                 />
-                <span>minutes</span>
+                <span>phút</span>
               </span>
               <small>
-                Minimum time required between duplicate asset signals to prevent
-                spam.
+                Khoảng cách tối thiểu giữa các tín hiệu trùng mã để tránh spam.
               </small>
             </label>
           </div>
@@ -209,7 +215,7 @@ export function Settings() {
             type="button"
           >
             <BellRing size={20} />
-            {isTesting ? 'Testing...' : 'Test Notification'}
+            {isTesting ? 'Đang gửi thử...' : 'Gửi thử thông báo'}
           </button>
           <button
             className="secondary-action"
@@ -218,7 +224,7 @@ export function Settings() {
             type="button"
           >
             <Save size={20} />
-            {isSaving ? 'Saving...' : 'Save Settings'}
+            {isSaving ? 'Đang lưu...' : 'Lưu cài đặt'}
           </button>
         </div>
       </div>

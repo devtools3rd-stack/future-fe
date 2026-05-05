@@ -6,7 +6,7 @@ import {
   updateStrategyConfig,
 } from '../api/client'
 
-type StrategyKey = 'EMA_CROSS' | 'RSI_EXTREME' | 'MACD_CROSS'
+type StrategyKey = 'SMC' | 'ICT'
 
 type WatchItem = {
   id: string
@@ -19,13 +19,19 @@ type StrategyForm = {
   params: Record<string, string>
 }
 
+type StrategyField = {
+  key: string
+  type: 'number' | 'boolean' | 'select'
+  options?: Array<{ value: string; label: string }>
+}
+
 type StrategyDefinition = {
   key: StrategyKey
   title: string
   subtitle: string
   icon: 'line' | 'bar'
-  fields: string[]
-  defaults: Record<string, number>
+  fields: StrategyField[]
+  defaults: Record<string, number | boolean | string>
 }
 
 type Toast = {
@@ -35,33 +41,71 @@ type Toast = {
 
 const strategyDefinitions: StrategyDefinition[] = [
   {
-    key: 'EMA_CROSS',
-    title: 'EMA Cross',
-    subtitle: 'Trend Following',
+    key: 'SMC',
+    title: 'SMC',
+    subtitle: 'Smart Money Concepts',
     icon: 'line',
-    fields: ['fastPeriod', 'slowPeriod'],
-    defaults: { fastPeriod: 9, slowPeriod: 21 },
+    fields: [
+      { key: 'swingLookback', type: 'number' },
+      { key: 'liquidityLookback', type: 'number' },
+      { key: 'minDisplacementPercent', type: 'number' },
+      { key: 'requireFairValueGap', type: 'boolean' },
+      { key: 'usePremiumDiscount', type: 'boolean' },
+      { key: 'minRiskReward', type: 'number' },
+    ],
+    defaults: {
+      swingLookback: 5,
+      liquidityLookback: 20,
+      minDisplacementPercent: 0.3,
+      requireFairValueGap: true,
+      usePremiumDiscount: true,
+      minRiskReward: 2,
+    },
   },
   {
-    key: 'RSI_EXTREME',
-    title: 'RSI Extreme',
-    subtitle: 'Momentum',
-    icon: 'line',
-    fields: ['period', 'oversold', 'overbought'],
-    defaults: { period: 14, oversold: 30, overbought: 70 },
-  },
-  {
-    key: 'MACD_CROSS',
-    title: 'MACD Cross',
-    subtitle: 'Trend & Momentum',
+    key: 'ICT',
+    title: 'ICT',
+    subtitle: 'Inner Circle Trader',
     icon: 'bar',
-    fields: ['fastPeriod', 'slowPeriod', 'signalPeriod'],
-    defaults: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
+    fields: [
+      { key: 'swingLookback', type: 'number' },
+      { key: 'liquidityLookback', type: 'number' },
+      { key: 'minDisplacementPercent', type: 'number' },
+      {
+        key: 'killZone',
+        type: 'select',
+        options: [
+          { value: 'any', label: 'Bất kỳ' },
+          { value: 'london', label: 'London' },
+          { value: 'newYork', label: 'New York' },
+        ],
+      },
+      { key: 'requireFairValueGap', type: 'boolean' },
+      { key: 'minRiskReward', type: 'number' },
+    ],
+    defaults: {
+      swingLookback: 5,
+      liquidityLookback: 20,
+      minDisplacementPercent: 0.25,
+      killZone: 'any',
+      requireFairValueGap: true,
+      minRiskReward: 2,
+    },
   },
 ]
 
+const fieldLabels: Record<string, string> = {
+  swingLookback: 'Số nến swing',
+  liquidityLookback: 'Vùng thanh khoản',
+  minDisplacementPercent: 'Displacement tối thiểu (%)',
+  requireFairValueGap: 'Yêu cầu FVG',
+  usePremiumDiscount: 'Lọc Premium/Discount',
+  killZone: 'Kill zone',
+  minRiskReward: 'Risk/Reward tối thiểu',
+}
+
 function asErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Something went wrong'
+  return error instanceof Error ? error.message : 'Có lỗi xảy ra.'
 }
 
 function normalizeWatchItems(data: unknown): WatchItem[] {
@@ -119,10 +163,7 @@ function applyServerConfigs(data: unknown): Record<StrategyKey, StrategyForm> {
       return
     }
 
-    const params =
-      'params' in item && item.params && typeof item.params === 'object'
-        ? (item.params as Record<string, unknown>)
-        : {}
+    const params = readServerParams(item as Record<string, unknown>)
 
     forms[strategyKey] = {
       enabled:
@@ -133,8 +174,8 @@ function applyServerConfigs(data: unknown): Record<StrategyKey, StrategyForm> {
         ...forms[strategyKey].params,
         ...Object.fromEntries(
           definition.fields
-            .filter((field) => params[field] !== undefined)
-            .map((field) => [field, String(params[field])]),
+            .filter((field) => params[field.key] !== undefined)
+            .map((field) => [field.key, String(params[field.key])]),
         ),
       },
     }
@@ -143,21 +184,55 @@ function applyServerConfigs(data: unknown): Record<StrategyKey, StrategyForm> {
   return forms
 }
 
+function readServerParams(item: Record<string, unknown>): Record<string, unknown> {
+  if (
+    item.paramsJson &&
+    typeof item.paramsJson === 'object' &&
+    !Array.isArray(item.paramsJson)
+  ) {
+    return item.paramsJson as Record<string, unknown>
+  }
+
+  if (item.params && typeof item.params === 'object' && !Array.isArray(item.params)) {
+    return item.params as Record<string, unknown>
+  }
+
+  return {}
+}
+
 function validateParams(
   definition: StrategyDefinition,
   form: StrategyForm,
-): Record<string, number> | string {
-  const parsedParams: Record<string, number> = {}
+): Record<string, unknown> | string {
+  const parsedParams: Record<string, unknown> = {}
 
   for (const field of definition.fields) {
-    const value = form.params[field]?.trim()
+    const fieldLabel = fieldLabels[field.key] ?? field.key
+    const value = form.params[field.key]?.trim() ?? ''
+
+    if (field.type === 'boolean') {
+      parsedParams[field.key] = value === 'true'
+      continue
+    }
+
+    if (field.type === 'select') {
+      const allowedValues = field.options?.map((option) => option.value) ?? []
+
+      if (!allowedValues.includes(value)) {
+        return `${fieldLabel} không hợp lệ.`
+      }
+
+      parsedParams[field.key] = value
+      continue
+    }
+
     const numberValue = Number(value)
 
     if (!value || !Number.isFinite(numberValue)) {
-      return `${field} must be a number.`
+      return `${fieldLabel} phải là số.`
     }
 
-    parsedParams[field] = numberValue
+    parsedParams[field.key] = numberValue
   }
 
   return parsedParams
@@ -251,7 +326,7 @@ export function StrategyConfig() {
 
   async function handleSave(definition: StrategyDefinition) {
     if (!selectedWatchId) {
-      setToast({ type: 'error', message: 'Choose a pair before saving.' })
+      setToast({ type: 'error', message: 'Chọn cặp trước khi lưu.' })
       return
     }
 
@@ -269,9 +344,9 @@ export function StrategyConfig() {
     try {
       await updateStrategyConfig(selectedWatchId, definition.key, {
         enabled: form.enabled,
-        params: parsedParams,
+        paramsJson: parsedParams,
       })
-      setToast({ type: 'success', message: `${definition.title} saved.` })
+      setToast({ type: 'success', message: `Đã lưu ${definition.title}.` })
     } catch (saveError) {
       setToast({ type: 'error', message: asErrorMessage(saveError) })
     } finally {
@@ -283,16 +358,16 @@ export function StrategyConfig() {
     <section className="screen">
       <div className="page-heading split-heading strategy-heading">
         <div>
-          <h2>Configuring Strategy</h2>
+          <h2>Cấu hình chiến lược</h2>
           <p>
             <span className="symbol-token">
-              {selectedWatchItem?.symbol ?? 'No pair selected'}
+              {selectedWatchItem?.symbol ?? 'Chưa chọn cặp'}
             </span>
             {selectedWatchItem ? (
               <>
                 <span className="dot-separator" aria-hidden="true" />
                 <span className="mono-cell">
-                  {selectedWatchItem.timeframe.toUpperCase()} Timeframe
+                  {selectedWatchItem.timeframe.toUpperCase()} Khung thời gian
                 </span>
               </>
             ) : null}
@@ -300,15 +375,15 @@ export function StrategyConfig() {
         </div>
 
         <label className="strategy-pair-select">
-          Choose pair
+          Chọn cặp
           <select
-            aria-label="Choose pair"
+            aria-label="Chọn cặp"
             disabled={isLoadingWatchlist || watchItems.length === 0}
             onChange={(event) => setSelectedWatchId(event.target.value)}
             value={selectedWatchId}
           >
             <option value="">
-              {isLoadingWatchlist ? 'Loading pairs...' : 'Select pair'}
+              {isLoadingWatchlist ? 'Đang tải cặp...' : 'Chọn cặp'}
             </option>
             {watchItems.map((item) => (
               <option key={item.id} value={item.id}>
@@ -336,14 +411,14 @@ export function StrategyConfig() {
 
       {!isLoadingWatchlist && watchItems.length === 0 ? (
         <div className="state-panel muted-state">
-          No watchlist pairs available. Add a pair before configuring
-          strategies.
+          Chưa có cặp nào trong danh sách theo dõi. Hãy thêm cặp trước khi
+          cấu hình chiến lược.
         </div>
       ) : null}
 
       {!selectedWatchId && watchItems.length > 0 ? (
         <div className="state-panel muted-state">
-          Select a watchlist pair to configure strategies.
+          Chọn một cặp trong danh sách theo dõi để cấu hình chiến lược.
         </div>
       ) : null}
 
@@ -370,7 +445,7 @@ export function StrategyConfig() {
                   </div>
                   <label className="toggle">
                     <input
-                      aria-label={`${definition.title} enabled`}
+                      aria-label={`Bật ${definition.title}`}
                       checked={form.enabled}
                       onChange={(event) =>
                         updateEnabled(definition.key, event.target.checked)
@@ -382,22 +457,76 @@ export function StrategyConfig() {
                 </div>
 
                 <div className="strategy-fields">
-                  {definition.fields.map((field) => (
-                    <label key={field}>
-                      {field}
-                      <input
-                        aria-label={`${definition.title} ${field}`}
-                        onChange={(event) =>
-                          updateFormField(
-                            definition.key,
-                            field,
-                            event.target.value,
-                          )
-                        }
-                        value={form.params[field] ?? ''}
-                      />
-                    </label>
-                  ))}
+                  {definition.fields.map((field) => {
+                    const label = fieldLabels[field.key] ?? field.key
+
+                    if (field.type === 'boolean') {
+                      return (
+                        <label className="strategy-toggle-field" key={field.key}>
+                          {label}
+                          <span className="strategy-checkbox-control">
+                            <input
+                              aria-label={`${definition.title} ${label}`}
+                              checked={form.params[field.key] === 'true'}
+                              onChange={(event) =>
+                                updateFormField(
+                                  definition.key,
+                                  field.key,
+                                  String(event.target.checked),
+                                )
+                              }
+                              type="checkbox"
+                            />
+                            {form.params[field.key] === 'true' ? 'Bật' : 'Tắt'}
+                          </span>
+                        </label>
+                      )
+                    }
+
+                    if (field.type === 'select') {
+                      return (
+                        <label key={field.key}>
+                          {label}
+                          <select
+                            aria-label={`${definition.title} ${label}`}
+                            onChange={(event) =>
+                              updateFormField(
+                                definition.key,
+                                field.key,
+                                event.target.value,
+                              )
+                            }
+                            value={form.params[field.key] ?? ''}
+                          >
+                            {field.options?.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )
+                    }
+
+                    return (
+                      <label key={field.key}>
+                        {label}
+                        <input
+                          aria-label={`${definition.title} ${label}`}
+                          onChange={(event) =>
+                            updateFormField(
+                              definition.key,
+                              field.key,
+                              event.target.value,
+                            )
+                          }
+                          step="any"
+                          type="number"
+                          value={form.params[field.key] ?? ''}
+                        />
+                      </label>
+                    )
+                  })}
                   <button
                     className="primary-action strategy-save-button wide-field"
                     disabled={isLoadingConfig || savingKey === definition.key}
@@ -405,7 +534,7 @@ export function StrategyConfig() {
                     type="button"
                   >
                     <Save size={18} />
-                    Save {definition.title}
+                    Lưu {definition.title}
                   </button>
                 </div>
               </article>

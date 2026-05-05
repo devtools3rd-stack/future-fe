@@ -41,7 +41,7 @@ describe('Watchlist', () => {
 
     render(<Watchlist />)
 
-    expect(screen.getByText('Loading watchlist...')).toBeInTheDocument()
+    expect(screen.getByText('Đang tải danh sách theo dõi...')).toBeInTheDocument()
   })
 
   it('shows empty state when watchlist has no rows', async () => {
@@ -49,7 +49,7 @@ describe('Watchlist', () => {
 
     render(<Watchlist />)
 
-    expect(await screen.findByText('No futures pairs watched yet.')).toBeInTheDocument()
+    expect(await screen.findByText('Chưa theo dõi cặp futures nào.')).toBeInTheDocument()
   })
 
   it('shows error state when watchlist fetch fails', async () => {
@@ -76,13 +76,30 @@ describe('Watchlist', () => {
 
     render(<Watchlist />)
 
-    expect(await screen.findByText('WATCHING')).toHaveClass('status-watching')
-    expect(screen.getByText('NO_SIGNAL')).toHaveClass('status-no-signal')
-    expect(screen.getByText('SIGNAL_SENT')).toHaveClass('status-signal-sent')
-    expect(screen.getByText('FETCH_ERROR')).toHaveClass('status-fetch-error')
-    expect(screen.getByText('TELEGRAM_ERROR')).toHaveClass(
+    expect(await screen.findByText('Chờ quét')).toHaveClass('status-watching')
+    expect(screen.getByText('Đang theo dõi - chưa có tín hiệu')).toHaveClass('status-no-signal')
+    expect(screen.getByText('Có tín hiệu')).toHaveClass('status-signal-sent')
+    expect(screen.getByText('Lỗi lấy dữ liệu')).toHaveClass('status-fetch-error')
+    expect(screen.getByText('Lỗi Telegram')).toHaveClass(
       'status-telegram-error',
     )
+  })
+
+  it('only offers Binance intervals supported by the backend', async () => {
+    mockedGetWatchlist.mockResolvedValue([
+      { id: 'watch-1', symbol: 'BTCUSDT', timeframe: '1h', status: 'WATCHING' },
+    ])
+
+    render(<Watchlist />)
+
+    const rowTimeframeSelect = await screen.findByLabelText(
+      'Khung thời gian cho BTCUSDT',
+    )
+    const optionValues = Array.from(
+      rowTimeframeSelect.querySelectorAll('option'),
+    ).map((option) => option.value)
+
+    expect(optionValues).toEqual(['1m', '5m', '15m', '1h', '4h'])
   })
 
   it('debounces symbol search by 300ms and renders suggestions', async () => {
@@ -92,7 +109,7 @@ describe('Watchlist', () => {
 
     render(<Watchlist />)
 
-    fireEvent.change(screen.getByLabelText('Search futures pair'), {
+    fireEvent.change(screen.getByLabelText('Tìm cặp futures'), {
       target: { value: 'BTC' },
     })
 
@@ -110,7 +127,7 @@ describe('Watchlist', () => {
     expect(screen.getByRole('button', { name: 'BTCUSDT' })).toBeInTheDocument()
   })
 
-  it('adds selected pair with default 1h timeframe and refreshes watchlist', async () => {
+  it('adds selected pair with default 1m timeframe and refreshes watchlist', async () => {
     const user = userEvent.setup()
     mockedGetWatchlist
       .mockResolvedValueOnce([])
@@ -128,15 +145,15 @@ describe('Watchlist', () => {
 
     render(<Watchlist />)
 
-    await user.type(screen.getByLabelText('Search futures pair'), 'BTC')
+    await user.type(screen.getByLabelText('Tìm cặp futures'), 'BTC')
     await act(async () => {
       await delay(320)
     })
     await user.click(await screen.findByRole('button', { name: 'BTCUSDT' }))
-    await user.click(screen.getByRole('button', { name: '+ Watch' }))
+    await user.click(screen.getByRole('button', { name: '+ Theo dõi' }))
 
     await waitFor(() => {
-      expect(mockedCreateWatchItem).toHaveBeenCalledWith('BTCUSDT', '1h')
+      expect(mockedCreateWatchItem).toHaveBeenCalledWith('BTCUSDT', '1m')
       expect(mockedGetWatchlist).toHaveBeenCalledTimes(2)
     })
     expect(await screen.findByText('EMA CROSS')).toBeInTheDocument()
@@ -161,7 +178,7 @@ describe('Watchlist', () => {
     render(<Watchlist />)
 
     await user.selectOptions(
-      await screen.findByLabelText('Timeframe for BTCUSDT'),
+      await screen.findByLabelText('Khung thời gian cho BTCUSDT'),
       '4h',
     )
 
@@ -169,7 +186,7 @@ describe('Watchlist', () => {
       timeframe: '4h',
     })
 
-    const deleteButton = screen.getByRole('button', { name: 'Delete BTCUSDT' })
+    const deleteButton = screen.getByRole('button', { name: 'Xóa BTCUSDT' })
     await waitFor(() => {
       expect(deleteButton).not.toBeDisabled()
     })
@@ -179,6 +196,35 @@ describe('Watchlist', () => {
       expect(mockedDeleteWatchItem).toHaveBeenCalledWith('watch-1')
       expect(mockedGetWatchlist).toHaveBeenCalledTimes(2)
     })
-    expect(await screen.findByText('No futures pairs watched yet.')).toBeInTheDocument()
+    expect(await screen.findByText('Chưa theo dõi cặp futures nào.')).toBeInTheDocument()
+  })
+
+  it('refreshes rows when a new signal event is received', async () => {
+    mockedGetWatchlist
+      .mockResolvedValueOnce([
+        {
+          id: 'watch-1',
+          symbol: 'BTCUSDT',
+          timeframe: '1h',
+          status: 'NO_SIGNAL',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'watch-1',
+          symbol: 'BTCUSDT',
+          timeframe: '1h',
+          status: 'SIGNAL_SENT',
+        },
+      ])
+
+    render(<Watchlist />)
+
+    expect(await screen.findByText('Đang theo dõi - chưa có tín hiệu')).toBeInTheDocument()
+
+    window.dispatchEvent(new CustomEvent('signalpro:new-signal'))
+
+    expect(await screen.findByText('Có tín hiệu')).toBeInTheDocument()
+    expect(mockedGetWatchlist).toHaveBeenCalledTimes(2)
   })
 })

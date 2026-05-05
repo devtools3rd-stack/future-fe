@@ -10,23 +10,24 @@ import {
 } from 'lucide-react'
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import './App.css'
+import { SignalNotifier } from './components/SignalNotifier'
 import { Settings } from './pages/Settings'
 import { SignalHistory } from './pages/SignalHistory'
 import { StrategyConfig } from './pages/StrategyConfig'
 import { Watchlist } from './pages/Watchlist'
 
 const navItems = [
-  { to: '/watchlist', label: 'Watchlist', icon: Star },
-  { to: '/strategy-config', label: 'Strategies', icon: BrainCircuit },
-  { to: '/signal-history', label: 'Signals', icon: Radio },
-  { to: '/settings', label: 'Settings', icon: SettingsIcon },
+  { to: '/watchlist', label: 'Danh sách', icon: Star },
+  { to: '/strategy-config', label: 'Chiến lược', icon: BrainCircuit },
+  { to: '/signal-history', label: 'Tín hiệu', icon: Radio },
+  { to: '/settings', label: 'Cài đặt', icon: SettingsIcon },
 ]
 
 const pageMeta: Record<string, { title: string; search?: string }> = {
-  '/watchlist': { title: 'SignalPro', search: 'Quick search...' },
-  '/strategy-config': { title: 'SignalPro', search: 'Search pairs...' },
-  '/settings': { title: 'Configuration' },
-  '/signal-history': { title: 'Signal History', search: 'Search signals...' },
+  '/watchlist': { title: 'SignalPro', search: 'Tìm nhanh...' },
+  '/strategy-config': { title: 'SignalPro', search: 'Tìm cặp...' },
+  '/settings': { title: 'Cấu hình' },
+  '/signal-history': { title: 'Lịch sử tín hiệu', search: 'Tìm tín hiệu...' },
 }
 
 function App() {
@@ -38,10 +39,10 @@ function App() {
       <aside className="sidebar">
         <div className="brand-block">
           <h1>SignalPro</h1>
-          <p>Institutional Grade</p>
+          <p>Chuẩn chuyên nghiệp</p>
         </div>
 
-        <nav className="side-nav" aria-label="Primary navigation">
+        <nav className="side-nav" aria-label="Điều hướng chính">
           {navItems.map((item) => {
             const Icon = item.icon
             return (
@@ -82,18 +83,18 @@ function App() {
                 <input placeholder={meta.search} />
               </label>
             ) : null}
-            <button className="icon-button" type="button" aria-label="Network hub">
+            <button className="icon-button" type="button" aria-label="Trung tâm mạng">
               <GitBranch size={22} />
             </button>
-            <button className="icon-button" type="button" aria-label="Topology">
+            <button className="icon-button" type="button" aria-label="Sơ đồ liên kết">
               <Network size={22} />
             </button>
-            <button className="icon-button" type="button" aria-label="Account">
+            <button className="icon-button" type="button" aria-label="Tài khoản">
               <CircleUserRound size={24} />
             </button>
             <button className="live-button" type="button">
               <span />
-              Live
+              Đang chạy
             </button>
           </div>
         </header>
@@ -108,6 +109,7 @@ function App() {
             <Route path="*" element={<Navigate replace to="/watchlist" />} />
           </Routes>
         </main>
+        <SignalNotifier />
       </div>
     </div>
   )

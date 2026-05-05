@@ -14,6 +14,8 @@ import {
   updateWatchItem,
 } from './client'
 
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '')
+
 function mockJsonResponse(data: unknown, init: Partial<Response> = {}) {
   return {
     ok: init.ok ?? true,
@@ -32,15 +34,18 @@ describe('apiClient', () => {
   it('uses the configured backend base URL and parses JSON responses', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(mockJsonResponse([{ symbol: 'BTCUSDT' }]))
+      .mockResolvedValue(mockJsonResponse({ data: [{ symbol: 'BTCUSDT' }] }))
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await getWatchlist()
 
-    expect(fetchMock).toHaveBeenCalledWith('http://localhost:3000/watchlist', {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${configuredApiBaseUrl}/api/watchlist`,
+      expect.objectContaining({
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
     expect(result).toEqual([{ symbol: 'BTCUSDT' }])
   })
 
@@ -53,7 +58,10 @@ describe('apiClient', () => {
     await updateWatchItem('watch-1', { timeframe: '1h', enabled: true })
     await deleteWatchItem('watch-1')
     await getStrategyConfigs('watch-1')
-    await updateStrategyConfig('watch-1', 'ema-cross', { enabled: false })
+    await updateStrategyConfig('watch-1', 'SMC', {
+      enabled: false,
+      paramsJson: {},
+    })
     await getSettings()
     await updateSettings({ strictMode: true })
     await testTelegram()
@@ -61,12 +69,12 @@ describe('apiClient', () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      'http://localhost:3000/symbols/search?q=BTC%2FUSDT',
+      `${configuredApiBaseUrl}/api/symbols/search?q=BTC%2FUSDT`,
       expect.objectContaining({ method: 'GET' }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      'http://localhost:3000/watchlist',
+      `${configuredApiBaseUrl}/api/watchlist`,
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ symbol: 'ETHUSDT', timeframe: '15m' }),
@@ -74,7 +82,7 @@ describe('apiClient', () => {
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
-      'http://localhost:3000/watchlist/watch-1',
+      `${configuredApiBaseUrl}/api/watchlist/watch-1`,
       expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({ timeframe: '1h', enabled: true }),
@@ -82,30 +90,30 @@ describe('apiClient', () => {
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       4,
-      'http://localhost:3000/watchlist/watch-1',
+      `${configuredApiBaseUrl}/api/watchlist/watch-1`,
       expect.objectContaining({ method: 'DELETE' }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       5,
-      'http://localhost:3000/watchlist/watch-1/strategies',
+      `${configuredApiBaseUrl}/api/watchlist/watch-1/strategies`,
       expect.objectContaining({ method: 'GET' }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       6,
-      'http://localhost:3000/watchlist/watch-1/strategies/ema-cross',
+      `${configuredApiBaseUrl}/api/watchlist/watch-1/strategies/SMC`,
       expect.objectContaining({
-        method: 'PATCH',
-        body: JSON.stringify({ enabled: false }),
+        method: 'PUT',
+        body: JSON.stringify({ enabled: false, paramsJson: {} }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       7,
-      'http://localhost:3000/settings',
+      `${configuredApiBaseUrl}/api/settings`,
       expect.objectContaining({ method: 'GET' }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       8,
-      'http://localhost:3000/api/settings',
+      `${configuredApiBaseUrl}/api/settings`,
       expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({ strictMode: true }),
@@ -113,12 +121,12 @@ describe('apiClient', () => {
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       9,
-      'http://localhost:3000/api/telegram/test',
+      `${configuredApiBaseUrl}/api/telegram/test`,
       expect.objectContaining({ method: 'POST' }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       10,
-      'http://localhost:3000/api/signals?symbol=BTC%2FUSD&timeframe=5m&limit=50',
+      `${configuredApiBaseUrl}/api/signals?symbol=BTC%2FUSD&timeframe=5m&limit=50`,
       expect.objectContaining({ method: 'GET' }),
     )
   })

@@ -16,6 +16,10 @@ type QueryFilters = Record<
   string | number | boolean | null | undefined
 >
 
+type DataEnvelope = {
+  data: unknown
+}
+
 export class ApiError extends Error {
   status: number
   data: unknown
@@ -32,7 +36,7 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '')
 
 function getApiBaseUrl() {
   if (!apiBaseUrl) {
-    throw new Error('VITE_API_BASE_URL is not configured')
+    throw new Error('Chưa cấu hình VITE_API_BASE_URL')
   }
 
   return apiBaseUrl
@@ -65,6 +69,14 @@ async function readResponse(response: Response) {
   return response.text()
 }
 
+function unwrapDataEnvelope(data: unknown) {
+  if (data && typeof data === 'object' && 'data' in data) {
+    return (data as DataEnvelope).data
+  }
+
+  return data
+}
+
 function errorMessage(data: unknown, response: Response) {
   if (
     data &&
@@ -79,12 +91,12 @@ function errorMessage(data: unknown, response: Response) {
     return data
   }
 
-  return `API request failed with status ${response.status}`
+  return `Yêu cầu API thất bại với mã ${response.status}`
 }
 
 async function request<T>(
   path: string,
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   options: RequestOptions = {},
 ): Promise<T> {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
@@ -102,39 +114,43 @@ async function request<T>(
     throw new ApiError(errorMessage(data, response), response.status, data)
   }
 
-  return data as T
+  return unwrapDataEnvelope(data) as T
 }
 
 export function searchSymbols(q: string) {
   return request<JsonValue[]>(
-    `/symbols/search${buildQuery({ q })}`,
+    `/api/symbols/search${buildQuery({ q })}`,
     'GET',
   )
 }
 
 export function getWatchlist() {
-  return request<JsonValue[]>('/watchlist', 'GET')
+  return request<JsonValue[]>('/api/watchlist', 'GET')
 }
 
 export function createWatchItem(symbol: string, timeframe: string) {
-  return request<JsonValue>('/watchlist', 'POST', {
+  return request<JsonValue>('/api/watchlist', 'POST', {
     body: { symbol, timeframe },
   })
 }
 
 export function updateWatchItem(id: string, payload: Record<string, unknown>) {
-  return request<JsonValue>(`/watchlist/${encodeURIComponent(id)}`, 'PATCH', {
-    body: payload,
-  })
+  return request<JsonValue>(
+    `/api/watchlist/${encodeURIComponent(id)}`,
+    'PATCH',
+    {
+      body: payload,
+    },
+  )
 }
 
 export function deleteWatchItem(id: string) {
-  return request<JsonValue>(`/watchlist/${encodeURIComponent(id)}`, 'DELETE')
+  return request<JsonValue>(`/api/watchlist/${encodeURIComponent(id)}`, 'DELETE')
 }
 
 export function getStrategyConfigs(watchlistId: string) {
   return request<JsonValue[]>(
-    `/watchlist/${encodeURIComponent(watchlistId)}/strategies`,
+    `/api/watchlist/${encodeURIComponent(watchlistId)}/strategies`,
     'GET',
   )
 }
@@ -145,16 +161,16 @@ export function updateStrategyConfig(
   payload: Record<string, unknown>,
 ) {
   return request<JsonValue>(
-    `/watchlist/${encodeURIComponent(watchlistId)}/strategies/${encodeURIComponent(
+    `/api/watchlist/${encodeURIComponent(watchlistId)}/strategies/${encodeURIComponent(
       strategyKey,
     )}`,
-    'PATCH',
+    'PUT',
     { body: payload },
   )
 }
 
 export function getSettings() {
-  return request<JsonValue>('/settings', 'GET')
+  return request<JsonValue>('/api/settings', 'GET')
 }
 
 export function updateSettings(payload: Record<string, unknown>) {
@@ -174,6 +190,8 @@ export const apiClient = {
     request<T>(path, 'GET', options),
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>(path, 'POST', { ...options, body }),
+  put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+    request<T>(path, 'PUT', { ...options, body }),
   patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>(path, 'PATCH', { ...options, body }),
   delete: <T>(path: string, options?: RequestOptions) =>

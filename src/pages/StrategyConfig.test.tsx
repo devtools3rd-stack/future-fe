@@ -20,7 +20,7 @@ const mockedUpdateStrategyConfig = vi.mocked(updateStrategyConfig)
 
 async function chooseBtcPair(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByText('BTCUSDT')
-  await user.selectOptions(screen.getByLabelText('Choose pair'), 'watch-1')
+  await user.selectOptions(screen.getByLabelText('Chọn cặp'), 'watch-1')
 }
 
 describe('StrategyConfig', () => {
@@ -35,8 +35,8 @@ describe('StrategyConfig', () => {
 
     render(<StrategyConfig />)
 
-    expect(await screen.findByText('Select a watchlist pair to configure strategies.')).toBeInTheDocument()
-    expect(screen.getByLabelText('Choose pair')).toHaveTextContent('BTCUSDT')
+    expect(await screen.findByText('Chọn một cặp trong danh sách theo dõi để cấu hình chiến lược.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Chọn cặp')).toHaveTextContent('BTCUSDT')
   })
 
   it('loads strategy cards after selecting a watchlist pair', async () => {
@@ -46,9 +46,16 @@ describe('StrategyConfig', () => {
     ])
     mockedGetStrategyConfigs.mockResolvedValue([
       {
-        strategyKey: 'EMA_CROSS',
+        strategyKey: 'SMC',
         enabled: true,
-        params: { fastPeriod: 9, slowPeriod: 21 },
+        paramsJson: {
+          swingLookback: 7,
+          liquidityLookback: 25,
+          minDisplacementPercent: 0.4,
+          requireFairValueGap: false,
+          usePremiumDiscount: true,
+          minRiskReward: 2,
+        },
       },
     ])
 
@@ -56,10 +63,12 @@ describe('StrategyConfig', () => {
 
     await chooseBtcPair(user)
 
-    expect(await screen.findByRole('heading', { name: 'EMA Cross' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'RSI Extreme' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'MACD Cross' })).toBeInTheDocument()
-    expect(screen.getByLabelText('EMA Cross fastPeriod')).toHaveValue('9')
+    expect(await screen.findByRole('heading', { name: 'SMC' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'ICT' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'EMA Cross' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('SMC Số nến swing')).toHaveValue(7)
+    expect(screen.getByLabelText('SMC Risk/Reward tối thiểu')).toHaveValue(2)
+    expect(screen.getByLabelText('SMC Yêu cầu FVG')).not.toBeChecked()
   })
 
   it('saves numeric params and shows success toast', async () => {
@@ -73,17 +82,24 @@ describe('StrategyConfig', () => {
     render(<StrategyConfig />)
 
     await chooseBtcPair(user)
-    await user.clear(await screen.findByLabelText('EMA Cross fastPeriod'))
-    await user.type(screen.getByLabelText('EMA Cross fastPeriod'), '12')
-    await user.click(await screen.findByRole('button', { name: 'Save EMA Cross' }))
+    await user.clear(await screen.findByLabelText('SMC Displacement tối thiểu (%)'))
+    await user.type(screen.getByLabelText('SMC Displacement tối thiểu (%)'), '0.45')
+    await user.click(await screen.findByRole('button', { name: 'Lưu SMC' }))
 
     await waitFor(() => {
-      expect(mockedUpdateStrategyConfig).toHaveBeenCalledWith('watch-1', 'EMA_CROSS', {
+      expect(mockedUpdateStrategyConfig).toHaveBeenCalledWith('watch-1', 'SMC', {
         enabled: false,
-        params: { fastPeriod: 12, slowPeriod: 21 },
+        paramsJson: {
+          swingLookback: 5,
+          liquidityLookback: 20,
+          minDisplacementPercent: 0.45,
+          requireFairValueGap: true,
+          usePremiumDiscount: true,
+          minRiskReward: 2,
+        },
       })
     })
-    expect(await screen.findByText('EMA Cross saved.')).toBeInTheDocument()
+    expect(await screen.findByText('Đã lưu SMC.')).toBeInTheDocument()
   })
 
   it('validates params are numbers before saving', async () => {
@@ -96,12 +112,12 @@ describe('StrategyConfig', () => {
     render(<StrategyConfig />)
 
     await chooseBtcPair(user)
-    await user.clear(await screen.findByLabelText('RSI Extreme period'))
-    await user.type(screen.getByLabelText('RSI Extreme period'), 'abc')
-    await user.click(await screen.findByRole('button', { name: 'Save RSI Extreme' }))
+    await user.clear(await screen.findByLabelText('SMC Số nến swing'))
+    await user.type(screen.getByLabelText('SMC Số nến swing'), 'abc')
+    await user.click(await screen.findByRole('button', { name: 'Lưu SMC' }))
 
     expect(mockedUpdateStrategyConfig).not.toHaveBeenCalled()
-    expect(await screen.findByText('period must be a number.')).toBeInTheDocument()
+    expect(await screen.findByText('Số nến swing phải là số.')).toBeInTheDocument()
   })
 
   it('shows error toast when save fails', async () => {
@@ -115,7 +131,7 @@ describe('StrategyConfig', () => {
     render(<StrategyConfig />)
 
     await chooseBtcPair(user)
-    await user.click(await screen.findByRole('button', { name: 'Save MACD Cross' }))
+    await user.click(await screen.findByRole('button', { name: 'Lưu ICT' }))
 
     expect(await screen.findByText('Save failed')).toBeInTheDocument()
   })

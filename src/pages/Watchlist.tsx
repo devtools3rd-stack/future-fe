@@ -24,10 +24,10 @@ type SymbolSuggestion = {
   symbol: string
 }
 
-const timeframeOptions = ['1m', '5m', '15m', '1h', '4h', '1D']
+const timeframeOptions = ['1m', '5m', '15m', '1h', '4h']
 
 function asErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Something went wrong'
+  return error instanceof Error ? error.message : 'Có lỗi xảy ra.'
 }
 
 function normalizeWatchItems(data: unknown): WatchItem[] {
@@ -78,7 +78,7 @@ export function Watchlist() {
   const [query, setQuery] = useState('')
   const [selectedSymbol, setSelectedSymbol] = useState('')
   const [suggestions, setSuggestions] = useState<SymbolSuggestion[]>([])
-  const [timeframe, setTimeframe] = useState('1h')
+  const [timeframe, setTimeframe] = useState('1m')
 
   const refreshWatchlist = useCallback(async (showLoading = true) => {
     if (showLoading) {
@@ -102,6 +102,18 @@ export function Watchlist() {
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
+  }, [refreshWatchlist])
+
+  useEffect(() => {
+    function handleNewSignal() {
+      void refreshWatchlist(false)
+    }
+
+    window.addEventListener('signalpro:new-signal', handleNewSignal)
+
+    return () => {
+      window.removeEventListener('signalpro:new-signal', handleNewSignal)
+    }
   }, [refreshWatchlist])
 
   useEffect(() => {
@@ -188,8 +200,8 @@ export function Watchlist() {
   return (
     <section className="screen watchlist-screen">
       <div className="page-heading">
-        <h2>Watchlist</h2>
-        <p>Monitoring Binance Futures pairs for signal triggers.</p>
+        <h2>Danh sách theo dõi</h2>
+        <p>Theo dõi các cặp Binance Futures để phát hiện tín hiệu.</p>
       </div>
 
       <div className="watchlist-controls glass-panel">
@@ -197,7 +209,7 @@ export function Watchlist() {
           <label htmlFor="pair-search-input">
             <Search size={20} />
             <input
-              aria-label="Search futures pair"
+              aria-label="Tìm cặp futures"
               autoComplete="off"
               id="pair-search-input"
               onChange={(event) => {
@@ -208,7 +220,7 @@ export function Watchlist() {
                   setSuggestions([])
                 }
               }}
-              placeholder="Search futures pair..."
+              placeholder="Tìm cặp futures..."
               value={query}
             />
           </label>
@@ -232,7 +244,7 @@ export function Watchlist() {
         </div>
 
         <select
-          aria-label="Default timeframe"
+          aria-label="Khung thời gian mặc định"
           className="timeframe-select"
           onChange={(event) => setTimeframe(event.target.value)}
           value={timeframe}
@@ -250,7 +262,7 @@ export function Watchlist() {
           onClick={handleAddWatchItem}
           type="button"
         >
-          + Watch
+          + Theo dõi
         </button>
       </div>
 
@@ -264,18 +276,18 @@ export function Watchlist() {
         <table>
           <thead>
             <tr>
-              <th>Symbol</th>
-              <th>Timeframe</th>
-              <th>Strategy</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th>Mã giao dịch</th>
+              <th>Khung thời gian</th>
+              <th>Chiến lược</th>
+              <th>Trạng thái</th>
+              <th>Thao tác</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
                 <td className="table-state" colSpan={5}>
-                  Loading watchlist...
+                  Đang tải danh sách theo dõi...
                 </td>
               </tr>
             ) : null}
@@ -283,7 +295,7 @@ export function Watchlist() {
             {!isLoading && items.length === 0 ? (
               <tr>
                 <td className="table-state" colSpan={5}>
-                  No futures pairs watched yet.
+                  Chưa theo dõi cặp futures nào.
                 </td>
               </tr>
             ) : null}
@@ -294,7 +306,7 @@ export function Watchlist() {
                     <td className="mono-cell">{item.symbol}</td>
                     <td>
                       <select
-                        aria-label={`Timeframe for ${item.symbol}`}
+                        aria-label={`Khung thời gian cho ${item.symbol}`}
                         className="row-select"
                         disabled={rowMutatingId === item.id}
                         onChange={(event) =>
@@ -313,7 +325,7 @@ export function Watchlist() {
                       <div className="chip-row">
                         {(item.strategies?.length
                           ? item.strategies
-                          : ['DEFAULT']
+                          : ['Mặc định']
                         ).map((strategy) => (
                           <span className="strategy-chip" key={strategy}>
                             {strategy}
@@ -326,7 +338,7 @@ export function Watchlist() {
                     </td>
                     <td>
                       <button
-                        aria-label={`Delete ${item.symbol}`}
+                        aria-label={`Xóa ${item.symbol}`}
                         className="ghost-icon"
                         disabled={rowMutatingId === item.id}
                         onClick={() => void handleDelete(item)}

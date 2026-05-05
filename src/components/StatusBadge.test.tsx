@@ -5,11 +5,11 @@ import { StatusBadge } from './StatusBadge'
 describe('StatusBadge', () => {
   it('renders distinct badge styles for supported watch statuses', () => {
     const statuses = [
-      ['WATCHING', 'status-watching'],
-      ['NO_SIGNAL', 'status-no-signal'],
-      ['SIGNAL_SENT', 'status-signal-sent'],
-      ['FETCH_ERROR', 'status-fetch-error'],
-      ['TELEGRAM_ERROR', 'status-telegram-error'],
+      ['WATCHING', 'Chờ quét', 'status-watching'],
+      ['NO_SIGNAL', 'Đang theo dõi - chưa có tín hiệu', 'status-no-signal'],
+      ['SIGNAL_SENT', 'Có tín hiệu', 'status-signal-sent'],
+      ['FETCH_ERROR', 'Lỗi lấy dữ liệu', 'status-fetch-error'],
+      ['TELEGRAM_ERROR', 'Lỗi Telegram', 'status-telegram-error'],
     ] as const
 
     render(
@@ -20,8 +20,8 @@ describe('StatusBadge', () => {
       </>,
     )
 
-    statuses.forEach(([status, className]) => {
-      expect(screen.getByText(status)).toHaveClass('status', className)
+    statuses.forEach(([, label, className]) => {
+      expect(screen.getByText(label)).toHaveClass('status', className)
     })
   })
 })

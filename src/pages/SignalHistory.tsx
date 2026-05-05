@@ -11,19 +11,20 @@ type SignalRow = {
   strategyLabel: string
   direction: string
   price: string
+  stopLoss: string
+  takeProfit: string
   message: string
 }
 
-const timeframeOptions = ['1m', '5m', '15m', '1h', '4h', '1D']
+const timeframeOptions = ['1m', '5m', '15m', '1h', '4h']
 const strategyOptions = [
-  { value: 'EMA_CROSS', label: 'EMA Cross' },
-  { value: 'RSI_EXTREME', label: 'RSI Extreme' },
-  { value: 'MACD_CROSS', label: 'MACD Cross' },
+  { value: 'SMC', label: 'SMC' },
+  { value: 'ICT', label: 'ICT' },
 ]
 const directionOptions = ['LONG', 'SHORT']
 
 function asErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Unable to load signals.'
+  return error instanceof Error ? error.message : 'Không tải được tín hiệu.'
 }
 
 function getRecordValue(item: Record<string, unknown>, keys: string[]) {
@@ -117,6 +118,12 @@ function normalizeSignals(data: unknown): SignalRow[] {
         strategyLabel: strategyLabel || formatStrategyLabel(strategyValue),
         direction: String(getRecordValue(item, ['direction'])).toUpperCase(),
         price: formatPrice(getRecordValue(item, ['price'])),
+        stopLoss: formatPrice(
+          getRecordValue(item, ['stopLoss', 'stop_loss', 'sl']),
+        ),
+        takeProfit: formatPrice(
+          getRecordValue(item, ['takeProfit', 'take_profit', 'tp']),
+        ),
         message: String(getRecordValue(item, ['message', 'telegramMessage'])),
       }
     })
@@ -162,27 +169,39 @@ export function SignalHistory() {
     return () => window.clearTimeout(timeoutId)
   }, [loadSignals])
 
+  useEffect(() => {
+    function handleNewSignal() {
+      void loadSignals()
+    }
+
+    window.addEventListener('signalpro:new-signal', handleNewSignal)
+
+    return () => {
+      window.removeEventListener('signalpro:new-signal', handleNewSignal)
+    }
+  }, [loadSignals])
+
   return (
     <section className="screen history-screen">
       <div className="filter-panel">
         <div className="filter-fields">
           <label>
-            Symbol
+            Mã giao dịch
             <input
-              aria-label="Symbol"
+              aria-label="Mã giao dịch"
               onChange={(event) => setSymbol(event.target.value)}
-              placeholder="All Symbols"
+              placeholder="Tất cả mã"
               value={symbol}
             />
           </label>
           <label>
-            Timeframe
+            Khung thời gian
             <select
-              aria-label="Timeframe"
+              aria-label="Khung thời gian"
               onChange={(event) => setTimeframe(event.target.value)}
               value={timeframe}
             >
-              <option value="">All TF</option>
+              <option value="">Tất cả khung</option>
               {timeframeOptions.map((option) => (
                 <option key={option} value={option}>
                   {option}
@@ -191,13 +210,13 @@ export function SignalHistory() {
             </select>
           </label>
           <label>
-            Strategy
+            Chiến lược
             <select
-              aria-label="Strategy"
+              aria-label="Chiến lược"
               onChange={(event) => setStrategyKey(event.target.value)}
               value={strategyKey}
             >
-              <option value="">All Strategies</option>
+              <option value="">Tất cả chiến lược</option>
               {strategyOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -206,13 +225,13 @@ export function SignalHistory() {
             </select>
           </label>
           <label>
-            Direction
+            Hướng
             <select
-              aria-label="Direction"
+              aria-label="Hướng"
               onChange={(event) => setDirection(event.target.value)}
               value={direction}
             >
-              <option value="">All Direction</option>
+              <option value="">Tất cả hướng</option>
               {directionOptions.map((option) => (
                 <option key={option} value={option}>
                   {option}
@@ -224,7 +243,7 @@ export function SignalHistory() {
         <div className="action-row">
           <button className="secondary-action" onClick={loadSignals} type="button">
             <Filter size={16} />
-            Filters
+            Lọc
           </button>
         </div>
       </div>
@@ -239,28 +258,30 @@ export function SignalHistory() {
         <table>
           <thead>
             <tr>
-              <th>Time</th>
-              <th>Symbol</th>
-              <th>Timeframe</th>
-              <th>Strategy</th>
-              <th>Direction</th>
-              <th className="right-cell">Price</th>
-              <th>Message</th>
+              <th>Thời gian</th>
+              <th>Mã giao dịch</th>
+              <th>Khung thời gian</th>
+              <th>Chiến lược</th>
+              <th>Hướng</th>
+              <th className="right-cell">Giá</th>
+              <th className="right-cell">SL</th>
+              <th className="right-cell">TP</th>
+              <th>Tin nhắn</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td className="table-state" colSpan={7}>
-                  Loading signals...
+                <td className="table-state" colSpan={9}>
+                  Đang tải tín hiệu...
                 </td>
               </tr>
             ) : null}
 
             {!isLoading && signals.length === 0 ? (
               <tr>
-                <td className="table-state" colSpan={7}>
-                  No signals found.
+                <td className="table-state" colSpan={9}>
+                  Không tìm thấy tín hiệu.
                 </td>
               </tr>
             ) : null}
@@ -268,7 +289,7 @@ export function SignalHistory() {
             {!isLoading
               ? signals.map((signal) => (
                   <tr
-                    aria-label={`Open ${signal.symbol} signal details`}
+                    aria-label={`Mở chi tiết tín hiệu ${signal.symbol}`}
                     key={signal.id}
                     onClick={() => setSelectedSignal(signal)}
                     onKeyDown={(event) => {
@@ -301,6 +322,10 @@ export function SignalHistory() {
                       </span>
                     </td>
                     <td className="right-cell strong-cell">{signal.price}</td>
+                    <td className="right-cell muted-cell">{signal.stopLoss}</td>
+                    <td className="right-cell muted-cell">
+                      {signal.takeProfit}
+                    </td>
                     <td className="muted-cell truncate-cell">
                       {signal.message}
                     </td>
@@ -310,28 +335,28 @@ export function SignalHistory() {
           </tbody>
         </table>
         <div className="table-footer">
-          <span>Showing {signals.length} of 50 latest entries</span>
+          <span>Đang hiển thị {signals.length}/50 tín hiệu mới nhất</span>
         </div>
       </div>
 
       {selectedSignal ? (
         <div className="modal-backdrop" role="presentation">
           <section
-            aria-label="Telegram Message"
+            aria-label="Chi tiết tín hiệu"
             aria-modal="true"
             className="message-modal"
             role="dialog"
           >
             <div className="modal-heading">
               <div>
-                <h3>Telegram Message</h3>
+                <h3>Chi tiết tín hiệu</h3>
                 <p>
                   {selectedSignal.symbol} - {selectedSignal.timeframe} -{' '}
                   {selectedSignal.strategyLabel}
                 </p>
               </div>
               <button
-                aria-label="Close message modal"
+                aria-label="Đóng chi tiết tín hiệu"
                 className="ghost-icon"
                 onClick={() => setSelectedSignal(null)}
                 type="button"

@@ -13,11 +13,11 @@ describe('App routing', () => {
     )
 
     expect(screen.getAllByText('SignalPro')).toHaveLength(2)
-    expect(screen.getByRole('heading', { name: 'Watchlist' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Danh sách theo dõi' })).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('link', { name: 'Settings' }))
+    await userEvent.click(screen.getByRole('link', { name: 'Cài đặt' }))
 
-    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
-    expect(screen.getByText('Telegram Configuration')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Cài đặt' })).toBeInTheDocument()
+    expect(screen.getByText('Cấu hình Telegram')).toBeInTheDocument()
   })
 })

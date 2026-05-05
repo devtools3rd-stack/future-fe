@@ -16,7 +16,7 @@ const mockedTestTelegram = vi.mocked(testTelegram)
 
 async function waitForSettingsReady() {
   await waitFor(() => {
-    expect(screen.queryByText('Loading settings...')).not.toBeInTheDocument()
+    expect(screen.queryByText('Đang tải cài đặt...')).not.toBeInTheDocument()
   })
 }
 
@@ -24,22 +24,22 @@ describe('Settings', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockedGetSettings.mockResolvedValue({
-      telegramBotToken: '',
-      telegramChatId: '',
-      cooldownMinutes: 15,
+      telegram_bot_token: '',
+      telegram_chat_id: '',
+      cooldown_minutes: 15,
     })
   })
 
   it('loads saved settings into the form', async () => {
     mockedGetSettings.mockResolvedValue({
-      telegramBotToken: 'token-from-api',
-      telegramChatId: '-100999',
-      cooldownMinutes: 30,
+      telegram_bot_token: 'token-from-api',
+      telegram_chat_id: '-100999',
+      cooldown_minutes: 30,
     })
 
     render(<Settings />)
 
-    expect(screen.getByText('Loading settings...')).toBeInTheDocument()
+    expect(screen.getByText('Đang tải cài đặt...')).toBeInTheDocument()
     expect(await screen.findByDisplayValue('token-from-api')).toBeInTheDocument()
     expect(screen.getByDisplayValue('-100999')).toBeInTheDocument()
     expect(screen.getByDisplayValue('30')).toBeInTheDocument()
@@ -60,20 +60,20 @@ describe('Settings', () => {
     render(<Settings />)
 
     await waitForSettingsReady()
-    await user.type(screen.getByLabelText('Telegram Bot Token'), '123:ABC')
-    await user.type(screen.getByLabelText('Telegram Chat ID'), '-100123')
-    await user.clear(screen.getByLabelText('Cooldown Minutes'))
-    await user.type(screen.getByLabelText('Cooldown Minutes'), '15')
-    await user.click(screen.getByRole('button', { name: 'Save Settings' }))
+    await user.type(screen.getByLabelText('Token bot Telegram'), '123:ABC')
+    await user.type(screen.getByLabelText('Chat ID Telegram'), '-100123')
+    await user.clear(screen.getByLabelText('Thời gian chờ'))
+    await user.type(screen.getByLabelText('Thời gian chờ'), '15')
+    await user.click(screen.getByRole('button', { name: 'Lưu cài đặt' }))
 
     await waitFor(() => {
       expect(mockedUpdateSettings).toHaveBeenCalledWith({
-        telegramBotToken: '123:ABC',
-        telegramChatId: '-100123',
-        cooldownMinutes: 15,
+        telegram_bot_token: '123:ABC',
+        telegram_chat_id: '-100123',
+        cooldown_minutes: 15,
       })
     })
-    expect(await screen.findByText('Settings saved.')).toBeInTheDocument()
+    expect(await screen.findByText('Đã lưu cài đặt.')).toBeInTheDocument()
   })
 
   it('validates cooldown minutes is a number greater than or equal to 1', async () => {
@@ -82,12 +82,12 @@ describe('Settings', () => {
     render(<Settings />)
 
     await waitForSettingsReady()
-    await user.clear(screen.getByLabelText('Cooldown Minutes'))
-    await user.type(screen.getByLabelText('Cooldown Minutes'), '0')
-    await user.click(screen.getByRole('button', { name: 'Save Settings' }))
+    await user.clear(screen.getByLabelText('Thời gian chờ'))
+    await user.type(screen.getByLabelText('Thời gian chờ'), '0')
+    await user.click(screen.getByRole('button', { name: 'Lưu cài đặt' }))
 
     expect(mockedUpdateSettings).not.toHaveBeenCalled()
-    expect(await screen.findByText('Cooldown minutes must be a number >= 1.')).toBeInTheDocument()
+    expect(await screen.findByText('Thời gian chờ phải là số >= 1 phút.')).toBeInTheDocument()
   })
 
   it('tests Telegram notification', async () => {
@@ -97,12 +97,12 @@ describe('Settings', () => {
     render(<Settings />)
 
     await waitForSettingsReady()
-    await user.click(screen.getByRole('button', { name: 'Test Notification' }))
+    await user.click(screen.getByRole('button', { name: 'Gửi thử thông báo' }))
 
     await waitFor(() => {
       expect(mockedTestTelegram).toHaveBeenCalled()
     })
-    expect(await screen.findByText('Test notification sent.')).toBeInTheDocument()
+    expect(await screen.findByText('Đã gửi thông báo thử.')).toBeInTheDocument()
   })
 
   it('shows API errors in toast', async () => {
@@ -112,7 +112,7 @@ describe('Settings', () => {
     render(<Settings />)
 
     await waitForSettingsReady()
-    await user.click(screen.getByRole('button', { name: 'Save Settings' }))
+    await user.click(screen.getByRole('button', { name: 'Lưu cài đặt' }))
 
     expect(await screen.findByText('Save failed')).toBeInTheDocument()
   })
